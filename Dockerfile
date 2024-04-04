@@ -1,37 +1,30 @@
-# Use official Node.js image as base for frontend
+# Stage 1: Build frontend
 FROM node:14 AS frontend
-
-# Set working directory for frontend
 WORKDIR /app/frontend
-
-# Copy frontend source code
 COPY frontend/package.json frontend/package-lock.json ./
-COPY frontend ./
-
-# Install dependencies
 RUN npm install
-
-# Build frontend
+COPY frontend ./
 RUN npm run build
 
-# Use official Python image as base for backend
+# Stage 2: Build backend
 FROM python:3.10 AS backend
-
-# Set working directory for backend
 WORKDIR /app/backend
-
-# Copy backend source code
 COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 COPY backend ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Expose port 8000
-EXPOSE 8000
+# Stage 3: Final image
+FROM python:3.10 AS final
+WORKDIR /app
 
 # Copy built frontend to backend static files directory
 COPY --from=frontend /app/frontend/build /app/backend/static
+
+# Copy backend code
+COPY --from=backend /app/backend /app/backend
+
+# Expose port 8000
+EXPOSE 8000
 
 # Start the backend server
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
